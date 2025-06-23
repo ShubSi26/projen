@@ -25,23 +25,27 @@ export class WorkflowActions {
    * @returns Job steps
    */
   public static uploadGitPatch(options: UploadGitPatchOptions): JobStep[] {
-    const MUTATIONS_FOUND = `steps.${options.stepId}.outputs.${options.outputName}`;
+    const CONDITION = `\${{ failure() && steps.${options.stepId}.conclusion == 'failure' }}`;
     const GIT_PATCH_FILE = options.patchFile ?? GIT_PATCH_FILE_DEFAULT;
+    let DIFF_COMMAND = `git diff --staged --patch --exit-code > ${GIT_PATCH_FILE}`;
+
+    //
+    if (options.outputName) {
+      DIFF_COMMAND = `${DIFF_COMMAND} || echo "${options.outputName}=true" >> $GITHUB_OUTPUT`;
+    }
 
     const steps: JobStep[] = [
       {
         id: options.stepId,
         name: options.stepName ?? "Find mutations",
-        run: [
-          "git add .",
-          `git diff --staged --patch --exit-code > ${GIT_PATCH_FILE} || echo "${options.outputName}=true" >> $GITHUB_OUTPUT`,
-        ].join("\n"),
+        continueOnError: true,
+        run: ["git add .", DIFF_COMMAND].join("\n"),
         // always run from root of repository
         // overrides default working directory which is set by some workflows using this function
         workingDirectory: "./",
       },
       WorkflowSteps.uploadArtifact({
-        if: MUTATIONS_FOUND,
+        if: CONDITION,
         name: "Upload patch",
         with: {
           name: GIT_PATCH_FILE,
@@ -54,7 +58,7 @@ export class WorkflowActions {
     if (options.mutationError) {
       steps.push({
         name: "Fail build on mutation",
-        if: MUTATIONS_FOUND,
+        if: CONDITION,
         run: [
           `echo "::error::${options.mutationError}"`,
           `cat ${GIT_PATCH_FILE}`,
@@ -191,9 +195,13 @@ export interface UploadGitPatchOptions {
   readonly patchFile?: string;
 
   /**
-   * The name of the output to emit. It will be set to `true` if there was a diff.
+   * The name of the output to emit, if provided.
+   *
+   * Output will be set to `true` if there was a diff.
+   *
+   * @deprecated - output is not required, use `steps.${stepName}.conclusion == 'failure'` instead
    */
-  readonly outputName: string;
+  readonly outputName?: string;
 
   /**
    * Fail if a mutation was found and print this error message.

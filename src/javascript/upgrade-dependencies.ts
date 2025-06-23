@@ -488,10 +488,7 @@ export class UpgradeDependencies extends Component {
         ),
         steps: steps,
         outputs: {
-          [PATCH_CREATED_OUTPUT]: {
-            stepId: CREATE_PATCH_STEP_ID,
-            outputName: PATCH_CREATED_OUTPUT,
-          },
+          [PATCH_CREATED_OUTPUT]: `\${{ steps.${CREATE_PATCH_STEP_ID}.conclusion == 'failure' }}`,
         },
       },
       jobId: "upgrade",

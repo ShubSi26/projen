@@ -219,10 +219,7 @@ export class BuildWorkflow extends Component {
         : undefined,
       steps: (() => this.renderBuildSteps(projectPathRelativeToRoot)) as any,
       outputs: {
-        [SELF_MUTATION_HAPPENED_OUTPUT]: {
-          stepId: SELF_MUTATION_STEP,
-          outputName: SELF_MUTATION_HAPPENED_OUTPUT,
-        },
+        [SELF_MUTATION_HAPPENED_OUTPUT]: `\${{ steps.${SELF_MUTATION_STEP}.conclusion == 'failure' }}`,
       },
     };
 
@@ -429,7 +426,6 @@ export class BuildWorkflow extends Component {
       // check for mutations and upload a git patch file as an artifact
       ...WorkflowActions.uploadGitPatch({
         stepId: SELF_MUTATION_STEP,
-        outputName: SELF_MUTATION_HAPPENED_OUTPUT,
         mutationError:
           "Files were changed during build (see build log). If this was triggered from a fork, you will need to update your branch.",
       }),
